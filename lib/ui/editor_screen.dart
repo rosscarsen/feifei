@@ -39,14 +39,16 @@ class _ScrollableToolRow extends StatelessWidget {
 
 /// 用大取景区、胶片时间轴与文字工具提供完整定格创作流程。
 class EditorScreen extends StatefulWidget {
-  /// 以当前工程快照打开工作台，操作成功后自动保存。
+  /// 以工程快照打开工作台并自动保存；可注入相机会话，页面退出时统一关闭。
   const EditorScreen({
     super.key,
     required this.repository,
     required this.project,
+    this.captureService,
   });
   final ProjectRepository repository;
   final AnimationProject project;
+  final CaptureService? captureService;
 
   /// 创建独占的相机和编辑会话。
   @override
@@ -66,6 +68,7 @@ class _EditorScreenState extends State<EditorScreen>
   bool _controlBusy = false;
   bool _allowExit = false;
   bool _exiting = false;
+  int _captureGeneration = 0;
   late final AnimationController _shutterFlash;
 
   /// 打开工程即进入实时取景，洋葱皮默认关闭并由用户手动开启。
@@ -80,14 +83,15 @@ class _EditorScreenState extends State<EditorScreen>
     WidgetsBinding.instance.addObserver(this);
     _editor = EditorController(widget.repository, widget.project)
       ..addListener(_changed);
-    _camera = CaptureService()..addListener(_changed);
+    _camera = (widget.captureService ?? CaptureService())
+      ..addListener(_changed);
     unawaited(_orientForProject());
     _editor.onPlaybackStart = _playSound;
     _editor.onPlaybackStop = () => unawaited(_sound?.stop());
     unawaited(_camera.start());
   }
 
-  /// 按工程画幅选择手机方向；不改变照片、洋葱皮和导出的宽高比。
+  /// 应用工程画幅的屏幕方向并保持到后续页面，切换工程时再更新；图像宽高比独立处理。
   Future<void> _orientForProject() => SystemChrome.setPreferredOrientations(
     _editor.project.format == CanvasFormat.landscape
         ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
@@ -142,10 +146,38 @@ class _EditorScreenState extends State<EditorScreen>
     if (_onion) await _live();
   }
 
-  /// 发起唯一拍摄操作，控制器负责串行写入与重复点击拦截。
+  /// 从播放或单帧预览回到取景，再恢复镜头并拍摄；恢复及保存均受拍摄互斥保护。
   Future<void> _capture() => _run(() async {
-    await _editor.capture(_photo);
+    if (_editor.busy ||
+        _controlBusy ||
+        _navigating ||
+        _exiting ||
+        !_foreground) {
+      return;
+    }
+    final generation = _captureGeneration;
+    _editor.select(-1);
+    await _editor.capture(() async {
+      _checkCaptureSession(generation);
+      await _camera.start(requestPermission: false);
+      _checkCaptureSession(generation);
+      if (!_camera.ready) {
+        throw StateError(_camera.error ?? '镜头尚未恢复，请重新打开镜头');
+      }
+      return _photo();
+    });
   });
+
+  /// 在恢复镜头前后拒绝失效的快门请求，避免后台重新打开镜头或迟到曝光。
+  void _checkCaptureSession(int generation) {
+    if (!mounted ||
+        !_foreground ||
+        _navigating ||
+        _exiting ||
+        generation != _captureGeneration) {
+      throw StateError('拍摄会话已结束，请返回镜头后重试');
+    }
+  }
 
   /// 回到实时取景前停止播放和定时拍摄。
   Future<void> _live() async {
@@ -191,7 +223,7 @@ class _EditorScreenState extends State<EditorScreen>
     );
   }
 
-  /// 打开声音编辑前停止实时资源，返回后提交一条有效音轨。
+  /// 保持所选屏幕方向打开声音编辑，先停止实时资源，返回后提交有效音轨。
   Future<void> _openSound() async {
     if (_editor.busy || _navigating) return;
     _navigating = true;
@@ -200,8 +232,6 @@ class _EditorScreenState extends State<EditorScreen>
     await _sound?.stop();
     if (!mounted) return;
     try {
-      await SystemChrome.setPreferredOrientations([]);
-      if (!mounted) return;
       final audio = await Navigator.of(context).push<ProjectAudio>(
         MaterialPageRoute(
           builder: (_) => SoundScreen(
@@ -251,7 +281,7 @@ class _EditorScreenState extends State<EditorScreen>
     }
   }
 
-  /// 在快照不再变化后进入导出页，返回时恢复取景资源。
+  /// 保持所选屏幕方向进入导出页，使用稳定快照并在返回时恢复取景资源。
   Future<void> _export() async {
     if (_editor.busy || _navigating || _editor.project.frames.isEmpty) return;
     _navigating = true;
@@ -260,8 +290,6 @@ class _EditorScreenState extends State<EditorScreen>
     await _sound?.stop();
     if (!mounted) return;
     try {
-      await SystemChrome.setPreferredOrientations([]);
-      if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ExportScreen(
@@ -446,13 +474,14 @@ class _EditorScreenState extends State<EditorScreen>
     );
   }
 
-  /// 退后台使旧会话失效，回到前台只在取景状态恢复镜头。
+  /// 退后台使旧会话与等待恢复的快门请求失效，回到前台只恢复取景镜头。
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       _foreground = false;
+      _captureGeneration++;
       _editor.suspend();
       unawaited(_camera.suspend());
       unawaited(_sound?.stop());
@@ -467,7 +496,7 @@ class _EditorScreenState extends State<EditorScreen>
     }
   }
 
-  /// 返回列表前停止镜头、等待文件操作并解除工程方向限制。
+  /// 返回列表前停止镜头并等待文件操作，保留用户最近选择的屏幕方向。
   Future<void> _exit() async {
     if (_exiting) return;
     _exiting = true;
@@ -477,14 +506,12 @@ class _EditorScreenState extends State<EditorScreen>
       if (_sound != null) _sound!.close(),
     ]);
     if (!mounted) return;
-    await SystemChrome.setPreferredOrientations([]);
-    if (!mounted) return;
     setState(() => _allowExit = true);
     await WidgetsBinding.instance.endOfFrame;
     if (mounted) Navigator.pop(context);
   }
 
-  /// 清理系统观察者，程序移除页面时同样释放全部资源。
+  /// 移除页面时释放观察者和会话资源，后续页面继续保持最近选择的屏幕方向。
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -494,7 +521,6 @@ class _EditorScreenState extends State<EditorScreen>
     unawaited(_editor.close());
     unawaited(_camera.close());
     unawaited(_sound?.close());
-    unawaited(SystemChrome.setPreferredOrientations([]));
     super.dispose();
   }
 
@@ -918,7 +944,7 @@ class _EditorScreenState extends State<EditorScreen>
     ),
   );
 
-  /// 固定保留快门，其余镜头工具在低矮屏幕中滚动，避免快门被挤出视野。
+  /// 固定保留可从预览恢复拍摄的快门，其余镜头工具在低矮屏幕中滚动。
   Widget _cameraTools(bool compact) => Container(
     width: compact ? 68 : 76,
     decoration: BoxDecoration(
@@ -939,9 +965,8 @@ class _EditorScreenState extends State<EditorScreen>
               minimumSize: Size(compact ? 54 : 62, compact ? 54 : 62),
             ),
             onPressed:
-                !_camera.ready ||
+                (!_camera.ready && _editor.selectedIndex < 0) ||
                     _editor.busy ||
-                    _editor.selectedIndex >= 0 ||
                     _controlBusy
                 ? null
                 : _capture,
