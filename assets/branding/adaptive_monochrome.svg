@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <title>飞帧：让静止的一帧动起来</title>
+  <g transform="translate(54 54) scale(.84) translate(-54 -54)">
+    <path fill="#FFFFFF" fill-rule="evenodd" d="M34 42H75Q82 42 82 49V74Q82 81 75 81H34Q27 81 27 74V49Q27 42 34 42ZM48 51V71L65 61Z"/>
+    <g transform="rotate(-12 54 33)">
+      <path fill="#FFFFFF" d="M31 27H40L47 38H28V30Q28 27 31 27ZM45 27H56L63 38H52ZM61 27H76Q80 27 80 31V38H68Z"/>
+    </g>
+    <path fill="#FFFFFF" d="M75 24L77 29L82 31L77 33L75 38L73 33L68 31L73 29Z"/>
+  </g>
+</svg>

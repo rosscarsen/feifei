@@ -1,0 +1,32 @@
+[
+  {
+    "file": "morning-marimba.m4a",
+    "seconds": 16.0,
+    "peak_dbfs": -2.52
+  },
+  {
+    "file": "starlight-bells.m4a",
+    "seconds": 16.0,
+    "peak_dbfs": -1.72
+  },
+  {
+    "file": "breeze-stream.m4a",
+    "seconds": 12.0,
+    "peak_dbfs": -2.03
+  },
+  {
+    "file": "underwater-bubbles.m4a",
+    "seconds": 8.0,
+    "peak_dbfs": -7.87
+  },
+  {
+    "file": "little-footsteps.m4a",
+    "seconds": 4.0,
+    "peak_dbfs": -1.72
+  },
+  {
+    "file": "gentle-clock.m4a",
+    "seconds": 8.0,
+    "peak_dbfs": -2.68
+  }
+]

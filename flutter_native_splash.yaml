@@ -1,0 +1,17 @@
+# 原生静态启动屏：暖白背景与首页一致，首个 Flutter 帧绘制后自动移除。
+flutter_native_splash:
+  android: true
+  ios: false
+  web: false
+  android_min_sdk: 24
+  color: "#F6F4EF"
+  color_dark: "#F6F4EF"
+  image: assets/branding/splash.png
+  image_dark: assets/branding/splash.png
+  android_gravity: center
+  fullscreen: true
+  android_12:
+    color: "#F6F4EF"
+    color_dark: "#F6F4EF"
+    image: assets/branding/splash.png
+    image_dark: assets/branding/splash.png

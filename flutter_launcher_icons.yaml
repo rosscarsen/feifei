@@ -1,0 +1,17 @@
+# Android 首版：保留矢量母版，由工具生成各密度及系统主题图标。
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/branding/icon.png
+  min_sdk_android: 24
+  adaptive_icon_background: "#172126"
+  adaptive_icon_foreground: assets/branding/adaptive_foreground.png
+  # 母版已保留安全区域，避免工具再缩小一层。
+  adaptive_icon_foreground_inset: 0
+  adaptive_icon_monochrome: assets/branding/adaptive_monochrome.png
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false

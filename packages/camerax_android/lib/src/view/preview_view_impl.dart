@@ -1,0 +1,62 @@
+import 'dart:ui';
+
+import 'package:camerax_android/src/api.dart';
+import 'package:camerax_android/src/common.dart';
+import 'package:camerax_android/src/view.dart';
+import 'package:camerax_platform_interface/camerax_platform_interface.dart';
+
+final class PreviewViewImpl extends ViewImpl
+    with WidgetAdapterImpl
+    implements PreviewView {
+  @override
+  final PreviewViewProxyApi api;
+
+  PreviewViewImpl.internal(this.api);
+
+  @override
+  String get viewType => 'camerax.zeekr.dev/PreviewView';
+  @override
+  int? get identifier => api.pigeon_instanceManager.getIdentifier(api);
+
+  @override
+  Future<void> setController(CameraController? controller) =>
+      api.setController(controller?.api);
+
+  @override
+  Future<void> setImplementationMode(
+    PreviewView$ImplementationMode implementationMode,
+  ) => api.setImplementationMode(implementationMode.api);
+
+  @override
+  Future<void> setScaleType(PreviewView$ScaleType scaleType) =>
+      api.setScaleType(scaleType.api);
+
+  @override
+  Future<void> setScreenFlashOverlayColor(Color color) =>
+      api.setScreenFlashOverlayColor(color.api);
+
+  @override
+  Future<LiveData<PreviewView$StreamState>> getPreviewStreamState() =>
+      api.getPreviewStreamState().then((e) => e.impl);
+}
+
+final class PreviewViewChannelImpl extends PreviewViewChannel {
+  @override
+  PreviewView create() {
+    final api = PreviewViewProxyApi();
+    return PreviewViewImpl.internal(api);
+  }
+}
+
+extension PreviewView$ImplementationModeX on PreviewView$ImplementationMode {
+  PreviewViewImplementationModeApi get api =>
+      PreviewViewImplementationModeApi.values[index];
+}
+
+extension PreviewView$ScaleTypeX on PreviewView$ScaleType {
+  PreviewViewScaleTypeApi get api => PreviewViewScaleTypeApi.values[index];
+}
+
+extension PreviewViewStreamStateApiX on PreviewViewStreamStateApi {
+  PreviewView$StreamState get impl => PreviewView$StreamState.values[index];
+}
