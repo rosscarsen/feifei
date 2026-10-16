@@ -35,7 +35,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   camerax: 1.2.2
-  camerax_android: 1.2.2
   pro_video_editor: ^2.33.0
   drift: ^2.35.2
   drift_flutter: ^0.3.1
@@ -75,11 +74,6 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
-dependency_overrides:
-  # 仅补充逐张图像的实际旋转矩阵，避免硬件已旋转 JPEG 时再转错方向。
-  camerax_android:
-    path: packages/camerax_android
-
 flutter:
   assets:
     - assets/audio/

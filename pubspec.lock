@@ -58,11 +58,12 @@ packages:
     source: hosted
     version: "1.2.2"
   camerax_android:
-    dependency: "direct main"
+    dependency: transitive
     description:
-      path: "packages/camerax_android"
-      relative: true
-    source: path
+      name: camerax_android
+      sha256: e2d34225458975c7f008f051f58ba2aa95ac2d3064cd4e7ed99921d763d53aa2
+      url: "https://pub.flutter-io.cn"
+    source: hosted
     version: "1.2.2"
   camerax_ios:
     dependency: transitive

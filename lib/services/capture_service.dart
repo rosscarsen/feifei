@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camerax/camerax.dart' as cx;
-import 'package:camerax_android/camerax_android.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as image;
@@ -12,18 +11,11 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../controllers/editor_controller.dart';
-import 'capture_rotation.dart';
 
 /// 使用 camerax 已有接口管理相机、能力查询和图片代理释放。
 class CaptureService extends ChangeNotifier {
   /// 默认创建包内相机，测试可注入受控设备验证回调先后顺序。
-  CaptureService({
-    this._controller,
-    Future<List<double>> Function(cx.ImageProxy)? imageTransform,
-  }) : _imageTransform =
-           imageTransform ?? CameraXImageGeometry.sensorToBufferTransform;
-
-  final Future<List<double>> Function(cx.ImageProxy) _imageTransform;
+  CaptureService({this._controller});
 
   cx.CameraController? _controller;
   Future<void>? _starting;
@@ -31,7 +23,6 @@ class CaptureService extends ChangeNotifier {
   bool _closed = false;
   bool _taking = false;
   bool _wanted = false;
-  static const _displayChannel = MethodChannel('com.lamb.feifei/display');
   int _generation = 0;
   bool ready = false;
   bool front = false;
@@ -238,7 +229,7 @@ class CaptureService extends ChangeNotifier {
     throw StateError('镜头初始化超时，请重新打开');
   }
 
-  /// 拍摄 JPEG 到临时文件；硬件开始曝光时通知界面，所有路径关闭图片代理。
+  /// 按原版拍摄目标的逐张旋转角保存 JPEG；曝光时通知界面，所有路径关闭图片代理。
   Future<CapturedPhoto> takePhoto({VoidCallback? onShutter}) async {
     if (!ready || _taking || _closed) throw StateError('相机尚未就绪，请稍后重试');
     _taking = true;
@@ -250,7 +241,6 @@ class CaptureService extends ChangeNotifier {
     var abandoned = false;
     final generation = _generation;
     final isFront = front;
-    late final int displayRotationDegrees;
     final callback = cx.ImageCapture$OnImageCapturedCallback(
       onCaptureStarted: () {
         if (!abandoned && !_closed && generation == _generation) {
@@ -269,11 +259,11 @@ class CaptureService extends ChangeNotifier {
             );
             temporary = file;
             final original = proxy.planes.first.value;
-            // 扣除这张 JPEG 已由硬件完成的旋转，不能假设所有手机都只写 EXIF。
-            final remaining = CaptureRotation.remainingDegrees(
-              sensorToDisplay: displayRotationDegrees,
-              sensorToBuffer: await _imageTransform(proxy),
-            );
+            // 原版返回的是当前像素还需旋转的角度，硬件已完成的旋转不重复应用。
+            final remaining = proxy.imageInfo.rotationDegrees;
+            if (remaining < 0 || remaining >= 360 || remaining % 90 != 0) {
+              throw const FormatException('照片方向数据无效');
+            }
             final exif = image.decodeJpgExif(original) ?? image.ExifData();
             exif.imageIfd.orientation = [1, 6, 3, 8][remaining ~/ 90];
             final jpeg = image.injectJpgExif(original, exif);
@@ -321,15 +311,6 @@ class CaptureService extends ChangeNotifier {
       },
     );
     try {
-      final rotation = await _displayChannel.invokeMethod<int>('rotation');
-      if (rotation == null || rotation < 0 || rotation > 3) {
-        throw StateError('无法读取当前窗口方向，请重新打开镜头');
-      }
-      final info = await _controller!.getCameraInfo();
-      if (info == null) throw StateError('相机已关闭');
-      displayRotationDegrees = await info.getSensorRotationDegrees(
-        cx.Surface$Rotation.values[rotation],
-      );
       if (_closed || generation != _generation || !ready) {
         throw StateError('拍摄会话已结束');
       }

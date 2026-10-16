@@ -9,12 +9,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-
-/** 管理全面屏并提供实际窗口旋转角，避免工程锁屏后拍照与取景方向不一致。 */
+/** 管理沉浸全面屏，在键盘收起及窗口恢复焦点时重新隐藏系统栏。 */
 class MainActivity : FlutterActivity() {
-    private var displayChannel: MethodChannel? = null
     private var keyboardVisible = false
     private val restoreFullscreen = Runnable { applyFullscreen() }
     private val keyboardListener = ViewTreeObserver.OnGlobalLayoutListener {
@@ -26,32 +22,6 @@ class MainActivity : FlutterActivity() {
             window.decorView.postDelayed(restoreFullscreen, 1100)
         }
         keyboardVisible = visible
-    }
-
-    /** 只补充包未暴露的窗口旋转查询；相机能力仍全部通过 camerax 接口调用。 */
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        displayChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.lamb.feifei/display").apply {
-            setMethodCallHandler { call, result ->
-                if (call.method != "rotation") {
-                    result.notImplemented()
-                } else {
-                    val rotation = window.decorView.display?.rotation
-                    if (rotation == null) {
-                        result.error("display_unavailable", "当前窗口未连接显示器，请稍后重试", null)
-                    } else {
-                        result.success(rotation)
-                    }
-                }
-            }
-        }
-    }
-
-    /** 引擎与 Activity 分离时解除回调，避免通道继续持有已销毁窗口。 */
-    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        displayChannel?.setMethodCallHandler(null)
-        displayChannel = null
-        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     /** 让背景延伸到挖孔区域，并只注册一个键盘布局观察者；按钮避让交给 Flutter。 */
